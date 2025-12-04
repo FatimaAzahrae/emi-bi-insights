@@ -4,7 +4,7 @@ import { Send, Bot, User, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { segmentData, formatCurrency, formatPercent } from "@/data/kpiData";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,13 +17,18 @@ const suggestedQuestions = [
   "Comment améliorer la marge bénéficiaire ?",
   "Quelles anomalies détectes-tu ?",
   "Propose des recommandations business",
+  "Explique-moi le concept de CLV",
+  "Comment créer une mesure DAX pour le panier moyen ?",
 ];
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export function AIChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,129 +38,126 @@ export function AIChat() {
     scrollToBottom();
   }, [messages]);
 
-  const generateResponse = (question: string): string => {
-    const q = question.toLowerCase();
-    
-    if (q.includes("segment c") || q.includes("bottom 5")) {
-      return `## 📊 Analyse du Segment C - Bottom 5%
-
-### Résumé Exécutif
-Le segment C représente les 5% de clients à plus faible contribution, avec un CA total de **${formatCurrency(segmentData.metrics.totalSales)}**.
-
-### 🎯 KPIs Clés
-| Métrique | Valeur | Interprétation |
-|----------|--------|----------------|
-| Panier Moyen | **${segmentData.metrics.averageBasket.toFixed(2)} €** | Inférieur à la moyenne globale |
-| CLV | **${formatCurrency(segmentData.metrics.customerLifetimeValue)}** | Potentiel de fidélisation |
-| Marge | **${formatPercent(segmentData.metrics.profitMarginPercent)}** | Acceptable mais optimisable |
-| Croissance YTD | **${formatPercent(segmentData.metrics.ytdGrowthPercent)}** | ✅ Excellente dynamique |
-
-### ⚠️ Anomalies Détectées
-1. **Pénétration produit élevée (118.64%)** : Clients qui achètent plusieurs fois le même produit
-2. **Fréquence d'achat modérée (6.56)** : Opportunité de programmes de fidélité
-
-### 💡 Recommandations
-- Implémenter un programme de fidélité ciblé
-- Proposer des bundles pour augmenter le panier moyen
-- Analyser les causes de la faible CLV pour améliorer la rétention`;
-    }
-    
-    if (q.includes("kpi") || q.includes("important")) {
-      return `## 🎯 KPIs Prioritaires
-
-### Top 5 Indicateurs Stratégiques
-
-1. **Chiffre d'Affaires Total** : ${formatCurrency(segmentData.metrics.totalSales)}
-   - Croissance YTD : +${formatPercent(segmentData.metrics.ytdGrowthPercent)}
-   
-2. **Marge Bénéficiaire** : ${formatPercent(segmentData.metrics.profitMarginPercent)}
-   - Profit généré : ${formatCurrency(segmentData.metrics.totalProfit)}
-   
-3. **Customer Lifetime Value** : ${formatCurrency(segmentData.metrics.customerLifetimeValue)}
-   - Indicateur clé de la valeur client
-   
-4. **Panier Moyen** : ${segmentData.metrics.averageBasket.toFixed(2)} €
-   - Levier d'optimisation revenue
-   
-5. **Croissance MoM** : ${formatPercent(segmentData.metrics.salesGrowthMoM)}
-   - Dynamique mensuelle positive`;
-    }
-    
-    if (q.includes("marge") || q.includes("profit")) {
-      return `## 💰 Analyse de la Marge Bénéficiaire
-
-### État Actuel
-- **Marge** : ${formatPercent(segmentData.metrics.profitMarginPercent)}
-- **Profit Total** : ${formatCurrency(segmentData.metrics.totalProfit)}
-- **Coût Total** : ${formatCurrency(segmentData.metrics.totalCost)}
-
-### Leviers d'Amélioration
-1. **Optimisation des coûts d'approvisionnement** (-5% coûts = +5.7M€ profit)
-2. **Révision du mix produit** vers les références à haute marge
-3. **Négociation des conditions fournisseurs**
-4. **Réduction des promotions non ciblées**
-
-### Objectif Recommandé
-Passer de 11.43% à **15%** de marge en 12 mois`;
-    }
-    
-    if (q.includes("anomalie") || q.includes("problème")) {
-      return `## ⚠️ Détection d'Anomalies
-
-### Anomalies Identifiées
-
-1. **Pénétration Produit > 100%** (${formatPercent(segmentData.metrics.productPenetrationPercent)})
-   - Clients qui rachètent les mêmes produits multiples fois
-   - Action : Analyser les patterns de réachat
-   
-2. **Écart CA/Profit**
-   - CA : ${formatCurrency(segmentData.metrics.totalSales)}
-   - Profit : ${formatCurrency(segmentData.metrics.totalProfit)}
-   - Ratio : 11.43% seulement
-   
-3. **Ventes Cumulées** : ${formatPercent(segmentData.metrics.cumulativeSalesPercent)}
-   - Le segment C contribue à presque 97% des ventes cumulées
-
-### Recommandations
-- Audit des coûts cachés
-- Vérification des remises accordées
-- Analyse des retours produits`;
-    }
-    
-    return `## 📈 Analyse Business Intelligence
-
-Merci pour votre question ! Voici une analyse basée sur les données du segment **${segmentData.segment}** :
-
-### Métriques Principales
-- **CA Total** : ${formatCurrency(segmentData.metrics.totalSales)}
-- **Clients Uniques** : ${segmentData.metrics.uniqueCustomers.toLocaleString()}
-- **Commandes** : ${segmentData.metrics.totalOrders.toLocaleString()}
-- **Croissance** : +${formatPercent(segmentData.metrics.ytdGrowthPercent)}
-
-### 💡 Insights
-Les données montrent une dynamique positive avec une croissance YTD de **58%**. Le panier moyen de **${segmentData.metrics.averageBasket.toFixed(2)} €** offre des opportunités d'upselling.
-
-Posez-moi des questions plus spécifiques pour une analyse approfondie !`;
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    const userMsg: Message = { role: "user", content: userMessage };
+    setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    // Simulate AI response delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    const response = generateResponse(userMessage);
-    setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-    setIsLoading(false);
+    let assistantContent = "";
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content }))
+        }),
+      });
+
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.error || "Erreur du service IA");
+      }
+
+      if (!resp.body) {
+        throw new Error("Pas de réponse du serveur");
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      const upsertAssistant = (nextChunk: string) => {
+        assistantContent += nextChunk;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant") {
+            return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantContent } : m));
+          }
+          return [...prev, { role: "assistant", content: assistantContent }];
+        });
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) upsertAssistant(content);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Handle any remaining buffer
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) upsertAssistant(content);
+          } catch { /* ignore */ }
+        }
+      }
+
+    } catch (error) {
+      console.error("AI chat error:", error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Impossible de contacter l'assistant IA",
+        variant: "destructive",
+      });
+      // Remove the loading message if there was an error
+      if (!assistantContent) {
+        setMessages((prev) => prev.filter((_, i) => i !== prev.length - 1 || prev[prev.length - 1].role !== "assistant"));
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSuggestionClick = (question: string) => {
     setInput(question);
+  };
+
+  const renderMarkdown = (content: string) => {
+    return content
+      .replace(/## /g, '<h4 class="text-base font-semibold mt-3 mb-2 text-foreground">')
+      .replace(/### /g, '<h5 class="text-sm font-medium mt-2 mb-1 text-foreground">')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary">$1</strong>')
+      .replace(/\|(.*?)\|/g, (match) => `<span class="font-mono text-xs">${match}</span>`)
+      .replace(/\n/g, '<br />');
   };
 
   return (
@@ -173,7 +175,7 @@ Posez-moi des questions plus spécifiques pour une analyse approfondie !`;
           </div>
           <div>
             <h3 className="font-semibold">Assistant IA - Power BI</h3>
-            <p className="text-xs text-muted-foreground">Analyse intelligente des données</p>
+            <p className="text-xs text-muted-foreground">Gemini 2.5 Flash • Analyse intelligente</p>
           </div>
         </div>
       </div>
@@ -183,8 +185,11 @@ Posez-moi des questions plus spécifiques pour une analyse approfondie !`;
         {messages.length === 0 ? (
           <div className="text-center py-8">
             <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground mb-2">
               Posez une question sur vos données Power BI
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Je peux aussi répondre à des questions générales !
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
               {suggestedQuestions.map((q) => (
@@ -228,13 +233,7 @@ Posez-moi des questions plus spécifiques pour une analyse approfondie !`;
                     <div className="prose prose-sm prose-invert max-w-none">
                       <div 
                         className="text-sm whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ 
-                          __html: message.content
-                            .replace(/## /g, '<h4 class="text-base font-semibold mt-3 mb-2">')
-                            .replace(/### /g, '<h5 class="text-sm font-medium mt-2 mb-1">')
-                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\n/g, '<br />')
-                        }}
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
                       />
                     </div>
                   ) : (
@@ -250,7 +249,7 @@ Posez-moi des questions plus spécifiques pour une analyse approfondie !`;
             ))}
           </AnimatePresence>
         )}
-        {isLoading && (
+        {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -279,7 +278,7 @@ Posez-moi des questions plus spécifiques pour une analyse approfondie !`;
                 handleSend();
               }
             }}
-            placeholder="Posez votre question sur les données..."
+            placeholder="Posez votre question..."
             className="min-h-[44px] max-h-[120px] resize-none bg-muted/30 border-border/50"
             rows={1}
           />
